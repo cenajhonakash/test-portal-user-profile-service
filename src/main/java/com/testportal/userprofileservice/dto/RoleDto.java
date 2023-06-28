@@ -1,5 +1,7 @@
 package com.testportal.userprofileservice.dto;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,5 +12,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class RoleDto {
-	private String[] roles;
+	private List<String> roles;
 }

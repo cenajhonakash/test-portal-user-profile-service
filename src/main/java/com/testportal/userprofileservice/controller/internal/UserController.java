@@ -17,11 +17,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.testportal.testportal.commonframework.controller.BaseRestController;
+import com.testportal.testportal.commonframework.dto.ApiResponse;
+import com.testportal.testportal.commonframework.exceptions.InvalidCredentialsException;
+import com.testportal.testportal.commonframework.exceptions.ResourceAlreadyExistsException;
+import com.testportal.testportal.commonframework.exceptions.ResourceNotFoundException;
+import com.testportal.testportal.commonframework.exceptions.ValidationException;
 import com.testportal.userprofileservice.dto.CandidateDto;
 import com.testportal.userprofileservice.dto.CredentialsDto;
 import com.testportal.userprofileservice.dto.UserDto;
-import com.testportal.userprofileservice.exception.InvalidCrentials;
-import com.testportal.userprofileservice.exception.UserNotFoundException;
 import com.testportal.userprofileservice.service.UserProfileService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/v1/internal/profile")
 @Slf4j
-public class UserController {
+public class UserController extends BaseRestController {
 
 	@Autowired
 	public UserProfileService profileService;
@@ -43,40 +47,38 @@ public class UserController {
 //	}
 
 	@PostMapping("/register")
-	public ResponseEntity<UserDto> createUser(@RequestBody(required = true) UserDto userDto) {
-		return new ResponseEntity<UserDto>(profileService.createNewUser(userDto, null), HttpStatus.CREATED);
+	public ResponseEntity<ApiResponse> createUser(@RequestBody(required = true) UserDto userDto) throws ResourceAlreadyExistsException, ValidationException {
+		return new ResponseEntity<>(profileService.createNewUser(userDto, null), HttpStatus.CREATED);
 	}
 
+	/*
+	 * JWT protected endpoint
+	 */
 	@GetMapping("/{userName}")
-	public ResponseEntity<UserDto> getUser(@PathVariable("userName") String userName) {
-		try {
-			return new ResponseEntity<UserDto>(profileService.getUserByUsername(userName), HttpStatus.FOUND);
-		} catch (UserNotFoundException e) {
-			e.printStackTrace();
-		}
-		return null;
+	public ResponseEntity<ApiResponse> getUser(@PathVariable("userName") String userName) throws ResourceNotFoundException {
+		return new ResponseEntity<>(profileService.getUserByUsername(userName), HttpStatus.FOUND);
 	}
 
 	@PostMapping(value = "/authenticate", consumes = MediaType.APPLICATION_JSON)
-	public ResponseEntity<UserDto> getUserByCredentials(@RequestBody(required = true) CredentialsDto credentials) {
-		try {
-			return new ResponseEntity<UserDto>(profileService.getUserByCredentials(credentials), HttpStatus.FOUND);
-		} catch (UserNotFoundException e) {
-			log.error(e.getMessage());
-		} catch (InvalidCrentials e) {
-			log.error(e.getMessage());
-		}
-		return null;
+	public ResponseEntity<ApiResponse> getUserByCredentials(@RequestBody(required = true) CredentialsDto credentials)
+			throws ResourceNotFoundException, InvalidCredentialsException, ValidationException {
+		return new ResponseEntity<>(profileService.getUserByCredentials(credentials), HttpStatus.FOUND);
 	}
 
+	/*
+	 * JWT protected endpoint
+	 */
 	@DeleteMapping("/{userID}")
 	public void deleteUser(@PathVariable("userID") Long userID) {
 
 	}
 
+	/*
+	 * JWT protected
+	 */
 	@PutMapping("/update/{userID}")
-	public ResponseEntity<UserDto> updateUser(@RequestBody UserDto userDto, @PathVariable("userID") Long userID) {
-		return new ResponseEntity<UserDto>(profileService.updateUser(userDto, null), HttpStatus.OK);
+	public ResponseEntity<ApiResponse> updateUser(@RequestBody UserDto userDto, @PathVariable("userID") Long userID) throws ValidationException {
+		return new ResponseEntity<>(profileService.updateUser(userDto, null), HttpStatus.OK);
 	}
 
 	/*

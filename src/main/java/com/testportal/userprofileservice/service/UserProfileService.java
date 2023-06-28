@@ -1,27 +1,33 @@
 package com.testportal.userprofileservice.service;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.testportal.testportal.commonframework.dto.ApiResponse;
+import com.testportal.testportal.commonframework.dto.ApiResponse.ApiResponseBuilder;
+import com.testportal.testportal.commonframework.exceptions.InvalidCredentialsException;
+import com.testportal.testportal.commonframework.exceptions.ResourceAlreadyExistsException;
+import com.testportal.testportal.commonframework.exceptions.ResourceNotFoundException;
+import com.testportal.testportal.commonframework.exceptions.ValidationException;
+import com.testportal.testportal.commonframework.security.SecurityUtility;
 import com.testportal.userprofileservice.dto.CredentialsDto;
+import com.testportal.userprofileservice.dto.RoleDto;
 import com.testportal.userprofileservice.dto.UserDto;
 import com.testportal.userprofileservice.entity.UserProfile;
-import com.testportal.userprofileservice.exception.InvalidCrentials;
-import com.testportal.userprofileservice.exception.MissingMandatoryAttribute;
-import com.testportal.userprofileservice.exception.ResourceAlreadyPresent;
-import com.testportal.userprofileservice.exception.UserNotFoundException;
 import com.testportal.userprofileservice.helper.UserProfileServiceHelper;
 import com.testportal.userprofileservice.repository.UserProfileRepository;
 
-@Component
+@Service
 public class UserProfileService {
 
 	private Logger log = LoggerFactory.getLogger(ProfileServiceProvider.class);
@@ -33,29 +39,24 @@ public class UserProfileService {
 	private ModelMapper mapper;
 	@Autowired
 	private UserProfileServiceHelper userProfileServiceHelper;
+	@Autowired
+	private SecurityUtility securityUtility;
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = RuntimeException.class)
-	public UserDto createNewUser(UserDto userDto, MultipartFile image) {
+	public ApiResponse createNewUser(UserDto userDto, MultipartFile image) throws ResourceAlreadyExistsException, ValidationException {
 
-		try {
-			userProfileServiceHelper.validateUserDetails(userDto, true);
-		} catch (MissingMandatoryAttribute e) {
-			return null;
-		}
+		userProfileServiceHelper.validateUserDetails(userDto, true);
 		UserProfile newUser = mapper.map(userDto, UserProfile.class);
 		UserProfile adddedUser = null;
-		if (userDto.getRole() != null && userDto.getRole().getRoles() != null && userDto.getRole().getRoles().length != 0) {
+		if (userDto.getRole() != null && userDto.getRole().getRoles() != null && userDto.getRole().getRoles().size() != 0) {
 			/*
 			 * validate whether user is getting created with role (ADMIN,SUPER ADMIN) by an SUPER ADMIN not by other roles user orElse throw exception
 			 */
 		} else {
-			try {
-				adddedUser = userProfileServiceHelper.addUserWithRoles(newUser);
-			} catch (ResourceAlreadyPresent e) {
-				return null;
-			}
+			adddedUser = userProfileServiceHelper.addUserWithRoles(newUser);
 		}
-		return mapper.map(adddedUser, UserDto.class);
+		adddedUser.setPassword(null);
+		return ApiResponse.builder().data(mapper.map(adddedUser, UserDto.class)).build();
 	}
 
 	public UserProfile getUserByUserName(String userName) {
@@ -73,48 +74,59 @@ public class UserProfileService {
 
 	}
 
-	public UserDto updateUser(UserDto userDto, MultipartFile image) {
-		try {
-			userProfileServiceHelper.validateUserDetails(userDto, true);
-		} catch (MissingMandatoryAttribute e) {
-			return null;
-		}
+	public ApiResponse updateUser(UserDto userDto, MultipartFile image) throws ValidationException {
+		userProfileServiceHelper.validateUserDetails(userDto, false);
 		return null;
 	}
 
-	public UserDto getUserById(Long id) throws UserNotFoundException {
-		Optional<UserProfile> u = userProfileRepository.findById(id);
-		if (u.isEmpty()) {
-			log.error("user not found with id: {}", id);
-			throw new UserNotFoundException();
-		}
-		return mapper.map(u.get(), UserDto.class);
+	public UserDto getUserById(Long id) throws ResourceNotFoundException {
+		UserProfile user = userProfileRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("No User found with id : " + id));
+		return mapper.map(user, UserDto.class);
 	}
 
-	public UserDto getUserByUsername(String userName) throws UserNotFoundException {
+	public ApiResponse getUserByUsername(String userName) throws ResourceNotFoundException {
 		if (userName != null) {
 			Optional<UserProfile> u = userProfileRepository.findByUsername(userName);
 			if (u.isPresent()) {
-				return mapper.map(u.get(), UserDto.class);
+				UserDto user = mapper.map(u.get(), UserDto.class);
+				List<String> userRoles = u.get().getRoles().stream().map(role -> role.getRole().getRole()).collect(Collectors.toList());
+				user.setRole(RoleDto.builder().roles(userRoles).build());
+				return ApiResponse.builder().data(user).build();
 			} else {
-				log.error("user not found with username: {}", userName);
-				throw new UserNotFoundException();
+				log.warn("user not found with username: {}", userName);
+				throw new ResourceNotFoundException("No user found with username " + userName);
 			}
 		}
 		return null;
 	}
 
-	public UserDto getUserByCredentials(CredentialsDto credentials) throws UserNotFoundException, InvalidCrentials {
-		if (credentials != null && credentials.getPassword() != null && credentials.getPassword() != null) {
-			Optional<UserProfile> u = userProfileRepository.findByUsernameAndPassword(credentials.getUsername(), credentials.getPassword());
-			if (u.isPresent()) {
-				return mapper.map(u.get(), UserDto.class);
-			} else {
-				log.error("user not found with username: {}", credentials.getUsername());
-				throw new UserNotFoundException();
+//	public UserDto getUserByCredentials(CredentialsDto credentials) throws UserNotFoundException, InvalidCrentials {
+//		if (credentials != null && credentials.getUsername() != null && credentials.getPassword() != null) {
+//			Optional<UserProfile> u = userProfileRepository.findByUsernameAndPassword(credentials.getUsername(), credentials.getPassword());
+//			if (u.isPresent()) {
+//				return mapper.map(u.get(), UserDto.class);
+//			} else {
+//				log.error("user not found with username: {}", credentials.getUsername());
+//				throw new UserNotFoundException();
+//			}
+//		} else {
+//			throw new InvalidCrentials("Invalid Credentials!");
+//		}
+//	}
+
+	public ApiResponse getUserByCredentials(CredentialsDto credentials) throws ResourceNotFoundException, InvalidCredentialsException, ValidationException {
+		ApiResponseBuilder resBuilder = ApiResponse.builder();
+		if (credentials != null && credentials.getUsername() != null && credentials.getPassword() != null) {
+			Optional<UserProfile> maybeUser = userProfileRepository.findByUsername(credentials.getUsername());
+			if (maybeUser.isEmpty()) {
+				throw new ResourceNotFoundException("No Resource found with username:  " + credentials.getUsername());
 			}
+			if (!securityUtility.validateCredentials(credentials.getPassword(), maybeUser.get().getPassword())) {
+				throw new InvalidCredentialsException("Invalid Credentials passed!!!");
+			}
+			return resBuilder.data(mapper.map(maybeUser.get(), UserDto.class)).build();
 		} else {
-			throw new InvalidCrentials("Invalid Credentials!");
+			throw new ValidationException("Missing attributes!!!");
 		}
 	}
 }

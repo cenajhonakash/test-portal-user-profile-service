@@ -14,16 +14,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.testportal.testportal.commonframework.exceptions.ResourceAlreadyExistsException;
+import com.testportal.testportal.commonframework.exceptions.ValidationException;
 import com.testportal.userprofileservice.config.AppConstants;
 import com.testportal.userprofileservice.dto.UserDto;
 import com.testportal.userprofileservice.entity.Role;
 import com.testportal.userprofileservice.entity.UserProfile;
 import com.testportal.userprofileservice.entity.UserRole;
-import com.testportal.userprofileservice.exception.MissingMandatoryAttribute;
-import com.testportal.userprofileservice.exception.ResourceAlreadyPresent;
 import com.testportal.userprofileservice.repository.RoleRepository;
 import com.testportal.userprofileservice.repository.UserProfileRepository;
-import com.testportal.userprofileservice.repository.UserRoleRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,8 +34,8 @@ public class UserProfileServiceHelper {
 	@Autowired
 	private UserProfileRepository userProfileRepository;
 
-	@Autowired
-	private UserRoleRepository userRoleRepository;
+//	@Autowired
+//	private UserRoleRepository userRoleRepository;
 
 	@Autowired
 	private RoleRepository roleRepository;
@@ -44,37 +43,31 @@ public class UserProfileServiceHelper {
 	@Value("${user.role.default}")
 	private String[] defaultUserRoles;
 
-	public void validateUserDetails(UserDto userDto, boolean isNew) throws MissingMandatoryAttribute {
+	public void validateUserDetails(UserDto userDto, boolean isNew) throws ValidationException {
 		if (!isNew) {
 			return;
 		}
 		if (userDto.getFirstName() == null || userDto.getFirstName().trim().length() == 0 || userDto.getLastName() == null || userDto.getLastName().trim().length() == 0) {
 			log.warn("mandatory attribute is missing from payload: {}", userDto);
-			throw new MissingMandatoryAttribute("mandatory attribute is missing from payload: " + userDto);
+			throw new ValidationException("mandatory attribute firstName or lastName");
 		}
 		if (userDto.getFirstName() == null || userDto.getFirstName().trim().length() == 0 || userDto.getLastName() == null || userDto.getLastName().trim().length() == 0) {
 			log.warn("mandatory attribute is missing from payload: {}", userDto);
-			throw new MissingMandatoryAttribute("mandatory attribute is missing from payload: " + userDto);
+			throw new ValidationException("mandatory attribute is missing from payload: " + userDto);
 		}
 		if (userDto.getFirstName() == null || userDto.getFirstName().trim().length() == 0 || userDto.getLastName() == null || userDto.getLastName().trim().length() == 0) {
 			log.warn("mandatory attribute is missing from payload: {}", userDto);
-			throw new MissingMandatoryAttribute("mandatory attribute is missing from payload: " + userDto);
+			throw new ValidationException("mandatory attribute is missing from payload: " + userDto);
 		}
 		if (userDto.getFirstName() == null || userDto.getFirstName().trim().length() == 0 || userDto.getLastName() == null || userDto.getLastName().trim().length() == 0) {
 			log.warn("mandatory attribute is missing from payload: {}", userDto);
-			throw new MissingMandatoryAttribute("mandatory attribute is missing from payload: " + userDto);
+			throw new ValidationException("mandatory attribute is missing from payload: " + userDto);
 		}
 
-	}
-
-	public void encodeDecodePassword(UserProfile user, boolean isEncode) {
-		if (isEncode) {
-			user.setPassword(passEncoder.encode(user.getPassword()));
-		}
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = RuntimeException.class)
-	public UserProfile addUserWithRoles(UserProfile newUser) throws ResourceAlreadyPresent {
+	public UserProfile addUserWithRoles(UserProfile newUser) throws ResourceAlreadyExistsException {
 
 		validateUserWithUserName(newUser);
 
@@ -83,16 +76,22 @@ public class UserProfileServiceHelper {
 		newUser.setEnabled(true);
 		encodeDecodePassword(newUser, true);
 
-		UserProfile user = userProfileRepository.saveAndFlush(newUser);
+		UserProfile user = userProfileRepository.save(newUser);
 
 		return user;
 	}
 
-	private void validateUserWithUserName(UserProfile newUser) throws ResourceAlreadyPresent {
+	public void encodeDecodePassword(UserProfile user, boolean isEncode) {
+		if (isEncode) {
+			user.setPassword(passEncoder.encode(user.getPassword()));
+		}
+	}
+
+	private void validateUserWithUserName(UserProfile newUser) throws ResourceAlreadyExistsException {
 		Optional<UserProfile> maybeUser = userProfileRepository.findByUsername(newUser.getUsername());
 		if (maybeUser.isPresent()) {
 			log.warn("User alreday exists with username: {}", newUser.getUsername());
-			throw new ResourceAlreadyPresent("User alreday exists with username: " + newUser.getUsername());
+			throw new ResourceAlreadyExistsException("User alreday exists with username: " + newUser.getUsername());
 		}
 	}
 
@@ -100,20 +99,13 @@ public class UserProfileServiceHelper {
 
 		Set<UserRole> roleSet = new HashSet<>();
 		List<Role> roleList = userRoles.stream().map(roleName -> Role.builder().role(roleName).roleId(findRoleIdForRole(roleName)).build()).collect(Collectors.toList());
-//		Role r = new Role();
-//		r.setRole("NORMAL");
-//		r.setRoleId(2L);
 
 		roleSet = roleList.stream().map(role -> UserRole.builder().role(role).user(newUser).build()).collect(Collectors.toSet());
-//		UserRole ur = new UserRole();
-//		ur.setUser(newUser);
-//		ur.setRole(r);
 
-		// roleSet.add(ur);
 		roleSet.forEach(userRole -> {
-			roleRepository.save(userRole.getRole());
+			roleRepository.saveAndFlush(userRole.getRole());
 		});
-		newUser.getRoles().addAll(roleSet);)
+		newUser.setRoles(roleSet);
 	}
 
 	private Long findRoleIdForRole(String roleName) {

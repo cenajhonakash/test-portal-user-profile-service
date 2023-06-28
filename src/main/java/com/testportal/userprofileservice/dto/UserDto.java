@@ -1,6 +1,6 @@
 package com.testportal.userprofileservice.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.testportal.testportal.commonframework.dto.Dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,8 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class UserDto {
+public class UserDto implements Dto {
 
 	private Long userID;
 	private String firstName;

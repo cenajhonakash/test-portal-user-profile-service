@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 public class TestRecord {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long testId;
 	private LocalDateTime testTakenOn;
 	private Timestamp totalTimeTaken;

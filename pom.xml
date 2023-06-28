@@ -16,6 +16,7 @@
 	<properties>
 		<java.version>11</java.version>
 		<spring-cloud.version>2021.0.5</spring-cloud.version>
+		<testportal-common-framework>0.0.1-SNAPSHOT</testportal-common-framework>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -61,6 +62,11 @@
 			<groupId>org.modelmapper</groupId>
 			<artifactId>modelmapper</artifactId>
 			<version>2.4.4</version>
+		</dependency>
+		<dependency>
+			<groupId>com.testportal</groupId>
+			<artifactId>testportal-common-framework</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 	<dependencyManagement>

@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 public class Candidate {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.SEQUENCE)
 	private Long candidateId;
 
 	private String firstName;
